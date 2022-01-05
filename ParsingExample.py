@@ -27,13 +27,6 @@ def get_links(html):
         )
     return links
 
-
-# html=get_html(URL)
-# #print(html.text)
-# a=get_links(html)
-# print(a)
-
-
 def get_all_links():
     PAGENATION=input('Глубина парсинга(количество страниц): ')
     PAGENATION=int(PAGENATION.strip())
@@ -51,71 +44,53 @@ def get_all_links():
         print ('Error')
     return(links)
 
-
-
 def get_content(URL):
     html= requests.get(URL)
     soup= BeautifulSoup(html.text,'html.parser')
     items= soup.find_all('div', class_='main grid')
     news= []  
 
-
-    for item in items:        
+    for item in items: 
+        row =  item.find_all('p',class_='doc__text')      
+        news_desc = '';
+        for x in row:
+          news_desc += x.get_text(strip=True).replace('\xa0',' ')
         news.append(
-            (  
-                            
+            (                              
                 item.find('h1',class_='doc_header__name js-search-mark').get_text(strip=True),
                 item.find('time',class_='doc_header__publish_time').get_text(strip=True),
-                item.find('p',class_='doc__text').get_text(strip=True), 
+                news_desc,
                 URL  
-        )        
+            )        
         )
     return news
-
-
 
 def parsing(url):
     links=get_all_links()
     news=[]
     for link in links:
         news.append(get_content(link))
+    for i in range(len(news)):
+        news+=list(news[i])
+        #print('.',end='')
     return news
-
-news=parsing(URL)
-nnews=[]
-
-for i in range(len(news)):
-    for j in range(len(news)):
-        news[j].insert(0,j+1)
-    nnews+=list(news[i])
-print(nnews)
-
-
-# news=[]
-# for i in range(len(nnews)):
-#     news+=list(nnews[i])
-
-
-
-
-# print(news)
-# final_news= [item for sublist in news for item in sublist]
-# for elem in final_news:
-#     el = elem.text
-#     news.append(el)
-#print (news)
 
 def create_table():
        
     con= cx_Oracle.connect('SYSTEM','12345678','localhost/xe')
     cur=con.cursor()
-    cur.execute("CREATE table news (id number primary key, title varchar2(1000), news_time varchar2(1000), text varchar2(3999), link varchar2(1000))")
+    cur.execute("""CREATE table news ("ID" NUMBER GENERATED ALWAYS AS IDENTITY 
+    MINVALUE 1 MAXVALUE  9999999999999999999999999999
+    INCREMENT BY 1 START WITH 1 CACHE 20 NOORDER 
+    NOCYCLE  NOKEEP  NOSCALE , 
+	"TITLE" VARCHAR2(1000 BYTE), 
+	"NEWS_TIME" VARCHAR2(1000 BYTE), 
+	"TEXT" CLOB, 
+	"LINK" VARCHAR2(1000 BYTE))""")
          
     con.commit()  
     cur.close()
     con.close()
-
-# create_table()
 
 def insert_into_db(rows):
     if rows==None:
@@ -123,24 +98,19 @@ def insert_into_db(rows):
     
     con= cx_Oracle.connect('SYSTEM','12345678','localhost/xe')
     cur=con.cursor()
-    cur.executemany("INSERT INTO news (id, title, news_time, text, link) values (:1, :2, :3, :4, :5)", rows)
+    cur.executemany("INSERT INTO news (title, news_time, text, link) values (:1, :2, :3, :4)", rows)
      
     con.commit()  
     cur.close()
     con.close()
-
-insert_into_db(nnews)
 
 def delete_from_db(id):
     if type(id) != int:
         return
     con= cx_Oracle.connect('SYSTEM','12345678','localhost/xe')
     cur=con.cursor()
-    #sql = "delete from news where id=" + str(id)
-    #print(sql)
     cur.execute("delete from news where id=:1",[id] )
-    #cur.execute(sql)
-     
+
     con.commit()  
     cur.close()
     con.close()
@@ -152,7 +122,7 @@ def update_db(row, id):
     cur=con.cursor()
     arg_sql = list(row)
     arg_sql.append(id)
-    cur.execute("update news set title=:1, link=:2 where id=:3", arg_sql)
+    cur.execute("update news set title=:1, news_time=:2, text=:3, link=:4 where id=:5", arg_sql)
      
     con.commit()  
     cur.close()
@@ -168,59 +138,14 @@ def read_db():
         
         print(record)
    
-
-
     con.commit()  
     cur.close()
     con.close()
 
-
-
-
-
-
-# insert_into_db(a)
-
-
-
-#title = input('ВВедите заголовок: ')
-#link = input('ВВедите ссылку: ')
-
-#update_db([title,link],242)
-#id_remove = int(input('Введите ID, удаляемой записи: '))
-#delete_from_db(id_remove)
-
-
-
-
-####
-# 1. insert_into_db
-# 2. x = read_from_db //select ... from
-# 3. найти в списке x один из id
-# 4. update_db(row,id)
-# 5. y = read_from_db()
-# 6. print(y)
-# 7. delete_from_db(id)        
-# 8. z = read_from_db()
-# 9. print(z) 
-
-#  def parser():
-#      PAGENATION=input('Глубина парсинга(количество страниц): ')
-#      PAGENATION=int(PAGENATION.strip())
-
-#      html=get_html(URL)
-
-#      if html.status_code== 200:
-#          news=[]
-#          for page in range(1,PAGENATION):
-#              html= get_html(URL,params={})
-
-
-#      else:
-#          print ('Error')
-
-#  parser()
-
-
-
+# news=parsing(URL)- парсит статьи по заданному количеству страниц
+# create_table() - создание таблицы для выгрузки данных
+# insert_into_db(news) - функция выгрузки данных 
+# read_db() - чтение таблицы
+# update_db((1,2,3,4),102) - пример обновления данных в таблице
+#delete_from_db(100) - пример удаления данных из таблицы через ID
 
